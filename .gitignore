@@ -1,0 +1,32 @@
+# PDFs (paper, drafts)
+*.pdf
+
+# CMake build output (FetchContent-cloned deps live here too)
+build/
+build-*/
+out/
+
+# Editor / LSP caches
+.cache/
+.vscode/
+.idea/
+
+# Compiled objects and binaries
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.exp
+*.lib
+*.pdb
+
+# OS detritus
+.DS_Store
+Thumbs.db
+
+# Crash dumps / core
+core
+*.core

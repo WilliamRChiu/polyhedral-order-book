@@ -1,0 +1,47 @@
+---
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++20
+
+# Width / indentation
+ColumnLimit: 100
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+NamespaceIndentation: None
+FixNamespaceComments: true
+
+# Brace style — Prettier-like: braces always, attached to the line above
+BreakBeforeBraces: Attach
+InsertBraces: true
+SpaceBeforeCpp11BracedList: false
+
+# Wrapping — when something has to wrap, one item per line
+AlignAfterOpenBracket: BlockIndent
+BinPackArguments: false
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortLambdasOnASingleLine: None
+AllowShortCaseLabelsOnASingleLine: false
+
+# Trailing comma on wrapped lists (Prettier default)
+InsertTrailingCommas: Wrapped
+
+# Pointer / reference alignment — `int* p`, `int& r`
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Includes — don't aggressively regroup, just sort within their existing groups
+IncludeBlocks: Preserve
+SortIncludes: CaseSensitive
+
+# Misc niceties
+SpacesBeforeTrailingComments: 2
+EmptyLineBeforeAccessModifier: LogicalBlock
