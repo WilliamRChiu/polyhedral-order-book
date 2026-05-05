@@ -65,3 +65,39 @@ TEST_CASE("Test a order with less asks than available bids", "[orderbook]"){
     REQUIRE_FALSE(book.best_ask().has_value());
     REQUIRE(book.best_bid() == Price{110});
 }
+
+TEST_CASE("Test FIFO at same price level", "[orderbook]"){
+    //In this test case, orders at the same price level should be filled in FIFO order
+    OrderBook book;
+    book.add_limit(make(1, Side::Ask, 100, 2));
+    book.add_limit(make(2, Side::Ask, 100, 3));
+    auto fills = book.add_limit(make(3, Side::Bid, 100, 4));
+    REQUIRE(fills[0].resting_id == OrderId{1});
+    REQUIRE(fills[0].quantity == Quantity{2});
+    REQUIRE(fills[1].resting_id == OrderId{2});
+    REQUIRE(fills[1].quantity == Quantity{2});
+}
+
+TEST_CASE("Multi Level Walk", "[orderbook]"){
+    //In this test case, order should walk up or down the book until it is completely filled or there are no more price levels that satisfy the price condition
+    OrderBook book;
+    book.add_limit(make(1, Side::Ask, 100, 2));
+    book.add_limit(make(2, Side::Ask, 101, 3));
+    book.add_limit(make(3, Side::Bid, 101, 4));
+    REQUIRE(book.best_ask().has_value());
+    REQUIRE(book.best_ask() == Price{101});
+    REQUIRE_FALSE(book.best_bid().has_value());
+}
+
+TEST_CASE("Limit order that doesn't match", "[orderbook]"){
+    //In this test case, order should be added to the book without any matches
+    OrderBook book;
+    book.add_limit(make(1, Side::Ask, 100, 2));
+    auto fills =book.add_limit(make(2, Side::Bid, 99, 3));
+    REQUIRE(book.best_ask().has_value());
+    REQUIRE(book.best_ask() == Price{100});
+    REQUIRE(book.best_bid().has_value());
+    REQUIRE(book.best_bid() == Price{99});
+    REQUIRE(fills.empty());
+    
+}
