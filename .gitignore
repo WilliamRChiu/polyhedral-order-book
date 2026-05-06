@@ -1,6 +1,9 @@
 # PDFs (paper, drafts)
 *.pdf
 
+# Local design notes — keep out of the public repo
+docs/
+
 # CMake build output (FetchContent-cloned deps live here too)
 build/
 build-*/

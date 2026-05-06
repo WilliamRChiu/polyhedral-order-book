@@ -150,3 +150,57 @@ Pre-alpha. Interfaces will change without notice.
 for CLOB, chose map as underlying container instead of maxHeap/minHeap since although maxHeap/minHeap better for cache hitting due to the underlying container of pqueue typically being a vector, the order book has better time complexities finding or eliminating by a certain key (heaps only good at getting top element but are O(N) for all other element searches), and have better time complexities for a ordered walk of the data
 
 I chose a list as the sub type of the map since we want to have a price-time priority engine.  
+
+
+## Definitions
+Aggressor -> for CLOB, it is the trader who put in the order second and crossed into the existing book
+Rester -> For CLOB, it is the trader who put in order first and had their order logged onto book before getting matched
+
+Note that for CLOB, the aggressor always gets the price improvement (aka the spread)
+
+## N=2 worked example
+
+Convention: asset 0 = USD, asset 1 = ACME. A column of A is the trade as a vector of asset deltas to the counterparty.
+
+Setup constraints. A match vector x must satisfy x ≥ 0 (a negative fill would mean reversing the order, which isn't a real trade) and Ax ≥ 0 (no asset can end up negative — counterparties can't be left short). The trivial solution x = 0 always satisfies these but represents "no trade happens," so we don't count it; we want a nonzero x.
+
+### Case 1: Buy 10 ACME @ $50, Sell 10 ACME @ $50
+
+Columns: z_buy = [+500, -10]ᵀ, z_sell = [-500, +10]ᵀ. With x = (1, 1), Ax = [0, 0]. Both orders fully fill, zero surplus — perfect match.
+
+### Case 2: Buy 10 ACME @ $51, Sell 10 ACME @ $50 (crossed book)
+
+Columns: z_buy = [+510, -10]ᵀ, z_sell = [-500, +10]ᵀ. With x = (1, 1), Ax = [+10, 0]. Both fill, with $10 surplus — that's the price improvement, awarded to the aggressor.
+
+### Case 3: Buy 10 ACME @ $49, Sell 10 ACME @ $50 (not crossed)
+
+Columns: z_buy = [+490, -10]ᵀ, z_sell = [-500, +10]ᵀ. Any x = (a, b) gives Ax = [490a − 500b, −10a + 10b]; the constraints force b ≥ a and a ≥ 1.02b, which collapses to a = b = 0.
+
+Note: this is a proof of infeasibility. The only x satisfying Ax ≥ 0, x ≥ 0 is the trivial x = 0, which we exclude. So no nonzero match vector exists and the matching LP has no solution — the book is not crossed and no trade occurs. Dually, any y with y₀ = 1 and 49 < y₁ < 50 (e.g. y = [1, 49.5]) gives yᵀA < 0, certifying non-crossedness from the pricing side.
+
+
+### Matrix labels
+
+Columns are orders (one column per order in book)
+Rows are assets (one row per share of stock/currency in system)
+
+Visual layout for a 3-asset, 3-order book:
+
+```
+                  Order 1   Order 2   Order 3
+Asset 0 (USD)   [  +25000    -500       0    ]
+Asset 1 (SPY)   [    0        +5      -10    ]
+Asset 2 (ACME)  [  -500       0       +20    ]
+```
+
+Reading by **column**: "Order 1 wants to buy 500 ACME for $25k" — the counterparty receives +$25k, gives -500 ACME. The whole order is described as one vector of asset deltas.
+
+Reading by **row**: "Across all current orders, asset 1 (SPY) has potential exposures of [0, +5, -10]." Useful for asking "what happens to my SPY balance if I fill some combination of these orders?"
+
+**Why this orientation matters.** The matching condition `Ax ≥ 0`:
+
+- `x` has length M (one weight per order — the fraction filled).
+- `Ax` has length N (one balance per asset).
+- `(Ax)[i] = Σⱼ A[i,j] · x[j]` — the net flow into asset *i* across all weighted orders.
+
+Requiring every entry of `Ax ≥ 0` means **no asset ends up net-negative** when you apply the weighted combination of orders — the exchange isn't left short on anything. This works precisely because rows = assets (the thing that must balance) and columns = orders (the things you're combining). Flipping the convention would force you to compute `xᵀA` instead, and the code's indexing would feel inverted from the paper.

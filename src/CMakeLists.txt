@@ -1,1 +1,2 @@
 add_subdirectory(clob)
+add_subdirectory(polyhedral)
