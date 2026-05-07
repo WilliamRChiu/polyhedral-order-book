@@ -39,10 +39,19 @@ orders and rows are assets. The entry `A[i,j]` is the change in asset
 problem*).
 
 When an incoming order arrives, the **pricing-matching algorithm**
-(paper §3.3) solves a dual LP to find a fair price vector `y`, then
-matches against exactly the resting orders that price `y` deems
-competitive. This repeats until the incoming order is filled or the
-book is no longer crossed.
+(paper §3.3) solves the **fair price problem** — a modified dual of
+the matching LP — to find a price vector `y` that values the incoming
+order under the cheapest prices that don't cross any resting order. If
+`zᵀy < 0`, the order rests (no cross). Otherwise, it matches against
+exactly the resting orders for which `(yᵀA)_i = 0` — the orders that
+break even at price `y`. This repeats until the incoming order is filled
+or the book is no longer crossed.
+
+The fair price problem is *not* the §3.2 dual itself: §3.2 is pure
+feasibility (`yᵀA < 0`, no objective), while §3.3 adds an objective
+(`min zᵀy`), an L1 normalization (`‖y‖₁ = 1`), and excludes the
+incoming column from the constraints. We solve §3.3 in code; §3.2 is
+the theoretical scaffolding that proves the cross test is sound.
 
 ## Scope (v0)
 
@@ -204,3 +213,6 @@ Reading by **row**: "Across all current orders, asset 1 (SPY) has potential expo
 - `(Ax)[i] = Σⱼ A[i,j] · x[j]` — the net flow into asset *i* across all weighted orders.
 
 Requiring every entry of `Ax ≥ 0` means **no asset ends up net-negative** when you apply the weighted combination of orders — the exchange isn't left short on anything. This works precisely because rows = assets (the thing that must balance) and columns = orders (the things you're combining). Flipping the convention would force you to compute `xᵀA` instead, and the code's indexing would feel inverted from the paper.
+
+
+
