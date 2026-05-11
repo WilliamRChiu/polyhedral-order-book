@@ -113,32 +113,49 @@ Since we can't manage to do this using a regular CLOB, many market makers are fo
 
 ## Build
 
-First-time configure (downloads Catch2 via FetchContent into `build/_deps/`):
-
+Configure (cross-platform; downloads Catch2 + HiGHS into `build-ninja/_deps/` on first run):
+run whenever cmake files edited
 ```
-cmake -B build -S .
+cmake -B build-ninja -G Ninja -S .
 ```
 
 Build everything:
-
+run whenver a cpp/hpp is edited
 ```
-cmake --build build -j
+cmake --build build-ninja -j
 ```
 
 Run all tests:
 
 ```
-ctest --test-dir build --output-on-failure
+ctest --test-dir build-ninja --output-on-failure
 ```
 
 Combined one-liner for incremental dev (configure → build → test):
 
 ```
-cmake -B build -S . && cmake --build build -j && ctest --test-dir build --output-on-failure
+cmake -B build-ninja -G Ninja -S . && cmake --build build-ninja -j && ctest --test-dir build-ninja --output-on-failure
 ```
 
-Targets C++20, no external runtime deps. Tests use Catch2 v3 (fetched
-via CMake FetchContent).
+Targets C++20, no external runtime deps. Catch2 v3 (tests) and HiGHS
+(LP solver) are fetched via CMake FetchContent on first configure. The
+Ninja generator drops `build-ninja/compile_commands.json`, which clangd
+reads for inline diagnostics, jump-to-def, and clang-tidy.
+
+### Toolchain prerequisites
+
+- **macOS / Linux**: install Ninja (`brew install ninja` on macOS,
+  `sudo apt install ninja-build` on Debian/Ubuntu) plus CMake ≥ 3.20
+  and a C++20-capable compiler.
+- **Windows**: install **Build Tools for Visual Studio** (or full VS) —
+  this bundles MSVC, the Windows SDK, and Ninja. Run the commands above
+  from a **Developer PowerShell for VS** (Start menu) so `cl.exe` and
+  `ninja.exe` are on `PATH`.
+
+`-G Ninja` is pinned because the default Visual Studio multi-config
+generator on Windows does not emit `compile_commands.json`, which
+breaks clangd. Mac and Linux usually default to a generator that does
+emit it, but pinning Ninja keeps behavior identical across platforms.
 
 ## Layout
 
@@ -216,3 +233,19 @@ Requiring every entry of `Ax ≥ 0` means **no asset ends up net-negative** when
 
 
 
+We aim to maximize the fraction of orders filled in the primal equation determining if we are crossed or not.  By bounding the x between 0 and 1, it ensures that if a x exists s.t. Ax>=0, we cant just scale it up to infinity
+
+if Ax >= 0 && Ax != 0, the pass over is net inventory and is added onto A for the next calculation in Ax + inventory >= 0
+
+Therefore, if i can find a y such that yA < 0, then book can never be crossed as yAx < 0 since x >=0
+
+but if y DNE, then we know the book is crossed.  This is derived from strong duality which states primal is bounded iff dual is feasible.  However, if only solution to primal is x = 0, then it means dual is feasible, yet dual is infeasible, therefore by strong duality, we can never have the trivial solution as only solution if y DNE, therefore we have a non zero x >=0 s.t. Ax >= 0, therefore it is crossed
+
+When we get a new order and recalculate if a cross exists or not, we can do a simple check first instead of resolving dual problem.  We just check if yz < 0 as A' = A U {z}.  If true, the book still not crossed as yA'< 0 => yA'x<0
+
+If false, then need to recalculate dual to see if a cross exists (i.e. if yz>=0 then recalculate dual for a new y').  To do this, we solve the Fair Price Problem to minimize z^ty such that y >=0 and y * 1 = 1 and yA <=0 for all A columns that are not z.  The logic for this is that we want to not use the trivial solution so y * 1 = 1.  If the optimal solution is less than 0, then we have all the columns of A
+
+The fair price problem doesnt only just check yes or no, it finds the best possible y to first satisfy all old orders and then check what it says about z.  if the optimal y' says z * y' < 0 then y'A<=0 therefore y'Ax <=0 so no cross as only solution is x = 0 which also means not crossed.  If z * y' >=0 then there is no better y that I can multiply with z to get a negative value, therefore the dual problem is infeasible (y DNE) so by strong duality, book is crossed
+
+
+Now, since we multipled y' to A, the only possible ways we can have crossing is for the y'A rows where they have a strict inequality.  Therefore, we just need to solve x for the rows where y'A = 0 (i.e. solve initial primal only for the Ax>=0 and y'A = 0) by complementary slackness theorem (x_i for all y'_iA<0 are 0; all other x_i can be any number >=0 so just solve)

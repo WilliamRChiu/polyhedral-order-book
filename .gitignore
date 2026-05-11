@@ -1,5 +1,6 @@
 # PDFs (paper, drafts)
 *.pdf
+polyhedral.txt
 
 # Local design notes — keep out of the public repo
 docs/

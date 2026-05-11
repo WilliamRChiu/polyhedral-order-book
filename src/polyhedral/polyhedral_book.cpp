@@ -19,6 +19,7 @@ namespace pob::polyhedral {
             rest_(std::move(o));
             return {};
         }
+        //loop coordinating phase 4 and 5
         throw std::logic_error("LP path not implemented");
     }
 
