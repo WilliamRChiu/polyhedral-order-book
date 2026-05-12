@@ -113,14 +113,33 @@ Since we can't manage to do this using a regular CLOB, many market makers are fo
 
 ## Build
 
-Configure (cross-platform; downloads Catch2 + HiGHS into `build-ninja/_deps/` on first run):
-run whenever cmake files edited
+### Windows (recommended): the `build.ps1` wrapper
+
+Run from any PowerShell at the repo root:
+
+```
+.\build.ps1            # configure (if needed), build, run tests
+.\build.ps1 -NoTest    # build only
+.\build.ps1 -Clean     # wipe build-ninja and rebuild from scratch
+```
+
+The wrapper sources `vcvarsall.bat amd64` once per session so MSVC's
+`INCLUDE` and `LIB` env vars point at the x64 toolchain. After it runs,
+the same shell can also invoke `cmake --build build-ninja -j` directly
+for follow-up builds. If `vcvarsall.bat` is not at the path baked into
+the script, edit `$vcvarsall` at the top of `build.ps1`.
+
+### Raw cmake commands (macOS, Linux, or Windows in an already-initialized dev shell)
+
+Configure (cross-platform; downloads Catch2 + HiGHS into `build-ninja/_deps/` on first run).
+Run whenever cmake files are edited:
+
 ```
 cmake -B build-ninja -G Ninja -S .
 ```
 
-Build everything:
-run whenver a cpp/hpp is edited
+Build everything. Run whenever a cpp/hpp is edited:
+
 ```
 cmake --build build-ninja -j
 ```
@@ -131,7 +150,7 @@ Run all tests:
 ctest --test-dir build-ninja --output-on-failure
 ```
 
-Combined one-liner for incremental dev (configure → build → test):
+Combined one-liner for incremental dev (configure, build, test):
 
 ```
 cmake -B build-ninja -G Ninja -S . && cmake --build build-ninja -j && ctest --test-dir build-ninja --output-on-failure
@@ -145,12 +164,15 @@ reads for inline diagnostics, jump-to-def, and clang-tidy.
 ### Toolchain prerequisites
 
 - **macOS / Linux**: install Ninja (`brew install ninja` on macOS,
-  `sudo apt install ninja-build` on Debian/Ubuntu) plus CMake ≥ 3.20
-  and a C++20-capable compiler.
-- **Windows**: install **Build Tools for Visual Studio** (or full VS) —
-  this bundles MSVC, the Windows SDK, and Ninja. Run the commands above
-  from a **Developer PowerShell for VS** (Start menu) so `cl.exe` and
-  `ninja.exe` are on `PATH`.
+  `sudo apt install ninja-build` on Debian/Ubuntu) plus CMake >= 3.20
+  and a C++20-capable compiler. Use the raw cmake commands above.
+- **Windows**: install **Build Tools for Visual Studio 2019** (or full VS),
+  which bundles MSVC, the Windows SDK, and Ninja. Use `build.ps1` from
+  any PowerShell, or open **Developer PowerShell for VS 2019** from the
+  Start menu and use the raw commands. The wrapper exists because plain
+  PowerShell does not have `INCLUDE`/`LIB` set, and the Start-menu
+  Developer PowerShell for VS 2019 defaults to x86, which causes
+  link-time architecture conflicts when targeting x64.
 
 `-G Ninja` is pinned because the default Visual Studio multi-config
 generator on Windows does not emit `compile_commands.json`, which
@@ -170,6 +192,22 @@ docs/             design notes, including the polyhedral model spec
 ## Status
 
 Pre-alpha. Interfaces will change without notice.
+
+## TODO / open design questions
+
+- **Multi-leg fill representation.** The current `Fill { aggressor_id,
+  resting_id, price, quantity }` struct assumes a 2-asset trade, and the
+  `PolyhedralBook::price_of_` helper currently asserts `column.size() == 2`
+  for the same reason. For N≥3 orders with three or more non-zero column
+  entries (the multi-leg case polyhedral is meant to unlock — see the
+  AAA→BBB→USD cycle example above), no single scalar price exists; a fill
+  is fundamentally a vector of asset deltas, not a `(price, quantity)`
+  pair. Both `Fill` and `price_of_` will need to be rethought before the
+  engine can correctly report fills past N=2. Two-asset orders embedded
+  in N≥3 space (only two non-zero entries) still have a scalar price and
+  could keep the current shape with a `price_of_` generalization that
+  finds the two non-zero rows — but the multi-leg case is the design
+  question worth pausing on.
 
 
 ## Decision Choices Logic
